@@ -1,0 +1,16 @@
+﻿# Build outputs
+build/
+bin/
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.lib
+*.exp
+
+# IDE and OS files
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
