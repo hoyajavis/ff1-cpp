@@ -126,6 +126,32 @@ ff1_cpp/
 - **CMake** 3.20 or newer
 - **C++20 Compatible Compiler** (MSVC 2022/2026, GCC 11+, or Clang 13+)
 
+### 📦 Obtaining the Disassembly Data
+
+The engine parses binary tables and CHR graphics directly from Disch's Final Fantasy I disassembly. Clone or download [Entroper/FF1Disassembly](https://github.com/Entroper/FF1Disassembly) adjacent to `ff1_cpp` (or inside `ff1_cpp`):
+
+```bash
+# In the parent directory containing ff1_cpp:
+git clone https://github.com/Entroper/FF1Disassembly.git
+```
+
+Expected directory layout:
+```text
+Coding/
+├── ff1_cpp/
+│   ├── CMakeLists.txt
+│   ├── src/
+│   └── ...
+└── FF1Disassembly/ (or FinalFantasyDisassembly_v1_0/)
+    └── Final Fantasy Disassembly/
+        ├── bin/
+        │   ├── 0C_8000_weapondata.bin
+        │   ├── 0C_8140_armordata.bin
+        │   └── ...
+        ├── bank_02.dat
+        └── ...
+```
+
 ### Build Instructions
 
 1. Navigate to the `ff1_cpp` directory:

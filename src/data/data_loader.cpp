@@ -21,6 +21,16 @@ static std::string resolve_asset_path(const std::string& base_path, const std::s
     candidates.push_back("../../../FinalFantasyDisassembly_v1_0/Final Fantasy Disassembly/" + filename);
     candidates.push_back("FinalFantasyDisassembly_v1_0/Final Fantasy Disassembly/" + filename);
 
+    // Support cloned Entroper/FF1Disassembly repository paths
+    candidates.push_back("../FF1Disassembly/Final Fantasy Disassembly/bin/" + filename);
+    candidates.push_back("../../FF1Disassembly/Final Fantasy Disassembly/bin/" + filename);
+    candidates.push_back("../../../FF1Disassembly/Final Fantasy Disassembly/bin/" + filename);
+    candidates.push_back("FF1Disassembly/Final Fantasy Disassembly/bin/" + filename);
+    candidates.push_back("../FF1Disassembly/Final Fantasy Disassembly/" + filename);
+    candidates.push_back("../../FF1Disassembly/Final Fantasy Disassembly/" + filename);
+    candidates.push_back("../../../FF1Disassembly/Final Fantasy Disassembly/" + filename);
+    candidates.push_back("FF1Disassembly/Final Fantasy Disassembly/" + filename);
+
     try {
         std::filesystem::path cur = std::filesystem::current_path();
         for (int i = 0; i < 5; ++i) {
@@ -28,6 +38,10 @@ static std::string resolve_asset_path(const std::string& base_path, const std::s
             candidates.push_back(p1.string());
             std::filesystem::path p2 = cur / "FinalFantasyDisassembly_v1_0/Final Fantasy Disassembly" / filename;
             candidates.push_back(p2.string());
+            std::filesystem::path p3 = cur / "FF1Disassembly/Final Fantasy Disassembly/bin" / filename;
+            candidates.push_back(p3.string());
+            std::filesystem::path p4 = cur / "FF1Disassembly/Final Fantasy Disassembly" / filename;
+            candidates.push_back(p4.string());
             if (cur.has_parent_path() && cur.parent_path() != cur) {
                 cur = cur.parent_path();
             } else {

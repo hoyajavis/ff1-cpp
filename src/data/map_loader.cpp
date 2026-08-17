@@ -17,11 +17,19 @@ static std::string resolve_map_asset_path(const std::string& base_path, const st
     candidates.push_back("../../../FinalFantasyDisassembly_v1_0/Final Fantasy Disassembly/bin/" + filename);
     candidates.push_back("FinalFantasyDisassembly_v1_0/Final Fantasy Disassembly/bin/" + filename);
 
+    // Support cloned Entroper/FF1Disassembly repository paths
+    candidates.push_back("../FF1Disassembly/Final Fantasy Disassembly/bin/" + filename);
+    candidates.push_back("../../FF1Disassembly/Final Fantasy Disassembly/bin/" + filename);
+    candidates.push_back("../../../FF1Disassembly/Final Fantasy Disassembly/bin/" + filename);
+    candidates.push_back("FF1Disassembly/Final Fantasy Disassembly/bin/" + filename);
+
     try {
         std::filesystem::path cur = std::filesystem::current_path();
         for (int i = 0; i < 5; ++i) {
             std::filesystem::path p = cur / "FinalFantasyDisassembly_v1_0/Final Fantasy Disassembly/bin" / filename;
             candidates.push_back(p.string());
+            std::filesystem::path p2 = cur / "FF1Disassembly/Final Fantasy Disassembly/bin" / filename;
+            candidates.push_back(p2.string());
             if (cur.has_parent_path() && cur.parent_path() != cur) {
                 cur = cur.parent_path();
             } else {
