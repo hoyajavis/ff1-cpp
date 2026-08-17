@@ -6,8 +6,8 @@ A modern **C++20** port of **Final Fantasy I (NES)** built from scratch using **
 
 ## 🌟 Key Features & Technical Architecture
 
-- **100% NES-Faithful Mechanics**: Authentic implementation of NES combat formulas, turn initiative ordering, physical hit/damage math, magic accuracy, elemental weaknesses/resistances, status ailments, enemy AI decision scripts, and 256-byte RNG sequences.
-- **Disch 2015 Disassembly Data & Map Loader**: Parses binary asset tables directly from `FinalFantasyDisassembly_v1_0/`:
+- **100% NES-Faithful Mechanics**: Authentic implementation of NES combat formulas, turn initiative ordering, physical hit/damage math, magic accuracy, elemental weaknesses/resistances, status ailments, enemy AI decision scripts, and 256-byte RNG sequences ($F100 / $FCF1).
+- **Disch 2015 Disassembly Asset Pipeline**: Parses binary asset tables directly from `FinalFantasyDisassembly_v1_0/`:
   - 40 Weapons (`0C_8000_weapondata.bin`)
   - 20 Armors (`0C_8140_armordata.bin`)
   - 64 Magic Spells (`0C_81E0_magicdata.bin`)
@@ -16,52 +16,43 @@ A modern **C++20** port of **Final Fantasy I (NES)** built from scratch using **
   - 44 Enemy AI Decision Scripts (`0C_9020_aidata.bin`)
   - 48 World Shop Inventories (`0E_8300_shopdata.bin`)
   - 104 NPC Map Objects (`0E_95D5_objectdata.bin`)
-  - Standard maps, TSA 16x16 macroblock tile blocks, locked door requirements, and teleport matrices
+  - 64 Decompressed Standard Maps ($64 \times 64$ tiles from `bank_04.dat`, `bank_05.dat`, `bank_06.dat`)
+  - Full 256x256 Overworld Map stream (`bank_01.bin` / `bank_01_data.bin`)
+  - TSA 16x16 macroblock tile definitions (`lut_SMTilesetTSA` at `$9000` in `bank_00.dat`)
+  - Complete Overworld and Dungeon Teleport & Entrance/Exit Matrices
   - DTE (Dual Tile Encoding) text compression tables (`lut_DTE1` / `lut_DTE2`)
-- **NES CHR Graphics Decoder & 15-Puzzle Mini-Game**:
-  - `CHRDecoder` parsing 16-byte 2-bit planar NES CHR tile graphics directly from disassembly CHR ROM banks (`bank_02.dat`, `bank_03.dat`, `bank_05.dat`, `bank_07.dat`, `bank_09.asm`) and mapping to the authentic 64-color NES hardware RGB palette table (`lut_NESPalette`)
-  - Interactive 4x4 sliding tile 15-Puzzle Mini-Game engine (`BANK_MINIGAME = $0D`) triggered aboard the Ship (key `P`), with time-scaled GP rewards (100 GP to 10,000 GP)
+- **Authentic Opening Story, Title Screen & Party Creation**:
+  - Cold boot Opening Story prologue scroll with blinking confirm prompt.
+  - Interactive Title Screen with cursor selection and authentic Message Respond Rate adjustment (1..8).
+  - 2x2 Party Creation matrix with 6 starting classes (Fighter, Thief, Black Belt, Red Mage, White Mage, Black Mage).
+  - Interactive on-screen Virtual Keyboard alphabet name entry (`A-Z`, Enter confirmation, Backspace letter deletion, Start auto-fill submission).
+- **Complete Map & Visual Rendering Pipeline**:
+  - `CHRDecoder` decoding 16-byte 2-bit planar NES CHR tile graphics directly from ROM banks (`bank_02.dat`, `bank_03.dat`, `bank_05.dat`, `bank_07.dat`, `bank_08.dat`, `bank_09.dat`).
+  - Dynamic Standard Map tileset switching across all 8 tilesets (Town, Castle, Cave/Dungeon, Temple/Fiend Lair, Volcano, Ice Cave, Floating Castle, Sea Shrine) and menu CHR.
+  - Smooth animated palette shimmering for authentic ocean waves, rivers, and coastline transitions.
+  - Directional 2-frame walk cycle animations for all 12 player classes, 104 NPC map objects, and vehicles (Ship, Canoe, Airship) with transparent background keying.
 - **Full Battle Engine & Spell/Item Matrix**:
-  - Full 64 White & Black Magic Spells (Healing, Revival, Elemental Damage, Stat Buffs/Debuffs, Instant Death, Status Ailments, and Escape/Warp)
-  - Monster AI Decision Script Execution (`process_enemy_ai_turn`)
-  - Equipped Item & Weapon Combat Use (`ActionType::ITEM`)
-  - Status Ailment Matrix (Death, Stone, Paralysis, Poison, Blindness, Silence, Sleep, Confusion)
+  - Full 64 White & Black Magic Spells (Healing, Revival, Elemental Damage, Stat Buffs/Debuffs, Instant Death, Status Ailments, and Escape/Warp).
+  - Monster AI Decision Script Execution (`process_enemy_ai_turn`).
+  - Equipped Item & Weapon Combat Use (`ActionType::ITEM`).
+  - Status Ailment Matrix (Death, Stone, Paralysis, Poison, Blindness, Silence, Sleep, Confusion).
 - **World Shops, Equipment & Class Promotions**:
-  - Weapon, Armor, White/Black Magic Shops, Clinics (Resurrection), and Inns (HP/MP restore & SRAM file saving)
-  - Real-time Equipment Manager recalculating Absorb, Evade penalty, HitRate, Damage, and Critical hit rates
-  - King Bahamut Class Promotion System transforming base classes (Warrior ➔ Knight, Thief ➔ Ninja, Black Belt ➔ Master, Red Mage ➔ Red Wizard, White Mage ➔ White Wizard, Black Mage ➔ Black Wizard)
-- **Audio Engine, HD Modding & Cutscene Engine**:
-  - Audio Engine managing BGM tracks (Overworld, Town, Castle, Battle, Fanfare, Dungeon, Airship, Game Over) and SFX signals (Cursor move, Select, Hit, Magic, Door, Chest, Teleport) with soft-synth fallback
-  - Native HD Modding System inspecting `./mods/` directory for optional PNG graphic overrides and WAV/OGG audio stream replacements
-  - Cinematic Cutscene Engine controlling timing and subtitle scrolling for Opening Conelia Bridge, Airship Rising, and Ending Credits
-- **Resolved NES Technical Quirks**:
-  - *MMC1 Mapper Flattening*: Unified asset arrays eliminating 16KB PRG-ROM bank latency while retaining cross-bank jump logic.
-  - *Hardware Timing & Split Screen*: Decoupled PPU cycle polling (e.g. VBLANK / Sprite 0 Hit) into a clean 60 FPS event loop with layered UI rasterization.
-  - *Memory Pointer Emulation*: Encapsulated zero-page RAM structures into strongly-typed C++ structs (`GameSaveData`, `PartyCharacter`).
-- **Native Port Advantages**:
+  - Weapon, Armor, White/Black Magic Shops, Clinics (Resurrection), and Inns (HP/MP restore & SRAM file saving).
+  - Real-time Equipment Manager recalculating Absorb, Evade penalty, HitRate, Damage, and Critical hit rates.
+  - King Bahamut Class Promotion System transforming base classes (Warrior ➔ Knight, Thief ➔ Ninja, Black Belt ➔ Master, Red Mage ➔ Red Wizard, White Mage ➔ White Wizard, Black Mage ➔ Black Wizard).
+- **Secret 15-Puzzle Mini-Game & Cinematic Cutscenes**:
+  - Interactive 4x4 sliding tile 15-Puzzle Mini-Game engine (`BANK_MINIGAME = $0D`) triggered aboard the Ship (key `P`), with 1bpp CHR rendering and time-scaled GP rewards (100 GP to 10,000 GP).
+  - Cinematic Cutscene Engine controlling timing and subtitle scrolling for Opening Conelia Bridge, Airship Rising, and Ending Credits.
+- **Audio Engine & HD Modding**:
+  - Audio Engine managing BGM tracks (Overworld, Town, Castle, Battle, Fanfare, Dungeon, Airship, Game Over) and SFX signals with soft-synth fallback.
+  - Native HD Modding System inspecting `./mods/` directory for optional PNG graphic overrides and WAV/OGG audio stream replacements.
+- **Modern C++20 Architecture**:
+  - *MMC1 Mapper Flattening*: Unified asset arrays eliminating 16KB PRG-ROM bank latency while retaining authentic game logic.
+  - *Hardware Timing & Split Screen*: Decoupled PPU cycle polling into a clean 60 FPS event loop with layered UI rasterization.
+  - *Strongly-Typed State Encapsulation*: Zero-page RAM structures encapsulated into type-safe C++ structs (`GameSaveData`, `PartyCharacter`).
   - *Widescreen (16:9) Mode*: Decoupled 256x240 view canvas allowing optional 16:9 widescreen expansion.
-  - *Native Modding*: Prepared for PNG sprite/tile asset swapping and WAV/OGG audio stream replacement.
   - *Cross-Platform*: Single C++20 codebase targeting Windows, Linux, macOS, Steam Deck, and mobile devices.
-- **NES Bug-Fix Toggle**: Option to toggle notorious NES FF1 bugs (e.g. Intelligence stat not affecting spell damage, weapon element/critical rate bugs) or play with authentic NES bug fixes enabled (`enable_bug_fixes = true`).
-
----
-
-## 🐛 Known Graphical Issues & Pipeline Status
-
-A detailed comparison between the C++ port build and the authentic NES hardware version identified the following remaining graphics pipeline tasks:
-
-1. **Town & Dungeon Map CHR Tileset Pipeline**:
-   - **Symptom**: Entering towns (such as `CONELIA TOWN`) renders overworld CHR tiles and red/blue braided tile patterns.
-   - **Technical Cause**: `Renderer::draw_map` currently forces Overworld CHR (`bank_02.dat`) and Overworld TSA macroblock tables (`bank_00.dat`) across all map types.
-   - **Fix**: Standard maps (`MapType::STANDARD_MAP`) must load town/dungeon tileset CHR from `bank_03.dat` / `bank_05.dat` and resolve town TSA macroblock tables from `bank_04.dat` / `bank_05.dat`.
-
-2. **Overworld Map Tile Byte Masking & Ocean Waves**:
-   - **Symptom**: Overworld map displays repeating leaf pattern tiles and checkerboard blocks instead of smooth grass, trees, and animated ocean waves.
-   - **Technical Cause**: Overworld 256x256 map layout bytes from `bank_01_data.bin` require correct TSA macroblock index masking (0..127) and CHR bank alignment.
-
-3. **Player & NPC Sprite CHR Alignment**:
-   - **Symptom**: Character and NPC sprites display shifted sub-tile indices and background block elements.
-   - **Technical Cause**: Player sprites (`LoadPlayerMapmanCHR`) require exact 16-tile bank offset calculations (`0x1000 + class_id * 0x100` in `bank_02.dat`) and OAM 2x2 sub-tile ordering with transparent background color keying (`color_idx == 0`).
+  - *NES Bug-Fix Toggle*: Option to toggle notorious NES FF1 bugs (e.g. Intelligence stat not affecting spell damage, weapon element/critical rate bugs) or play with authentic NES bug fixes enabled (`enable_bug_fixes = true`).
 
 ---
 
@@ -70,19 +61,19 @@ A detailed comparison between the C++ port build and the authentic NES hardware 
 ```
 ff1_cpp/
 ├── CMakeLists.txt                 # C++20 build configuration & SDL2 FetchContent setup
-├── README.md                      # Project documentation
+├── README.md                      # Comprehensive project documentation
 ├── ROADMAP.md                     # Phased completion roadmap & technical specifications
 ├── src/
 │   ├── main.cpp                   # Main game entry point & 60 FPS event loop
 │   ├── data/
 │   │   ├── game_types.hpp         # C++ structs (Party, Character, Weapon, Armor, Spell, Enemy, Formation, EnemyAIData, ShopInventory)
 │   │   ├── map_types.hpp          # TSA tiles, Standard Map structures, Teleport & NPC spawn types
-│   │   ├── data_loader.hpp / .cpp # Disassembly binary asset parser
+│   │   ├── data_loader.hpp / .cpp # Disassembly binary asset parser & 64 standard map decompressor
 │   │   ├── map_loader.hpp / .cpp  # Standard map, overworld, NPC object & teleport loader
 │   │   └── text_decoder.hpp / .cpp# NES DTE text decoder
 │   ├── engine/
 │   │   ├── system.hpp / .cpp      # SDL2 windowing, texture updating & input dispatch
-│   │   ├── renderer.hpp / .cpp    # 256x240/16:9 PPU tile map & entity rasterizer
+│   │   ├── renderer.hpp / .cpp    # 256x240/16:9 PPU tile map, sprite & UI rasterizer
 │   │   ├── audio_engine.hpp / .cpp# Music tracks and SFX trigger engine
 │   │   ├── mod_loader.hpp / .cpp  # HD PNG graphics & WAV/OGG audio override scanner
 │   │   ├── chr_decoder.hpp / .cpp # NES 2-bit CHR tile graphics decoder & NES RGB palette
@@ -94,29 +85,32 @@ ff1_cpp/
 │   │   ├── battle_engine.hpp / .cpp# Turn-based combat system, 64 Spells, AI scripts, math formulas, rewards
 │   │   ├── map_engine.hpp / .cpp  # Overworld/dungeon map movement, tile properties, NPCs, chests, teleports, event triggers
 │   │   ├── menu_engine.hpp / .cpp # Status, Equipment, Magic, Item, Lineup, Shop transactions & Class Promotions
-│   │   ├── intro_engine.hpp / .cpp# New Game party creation & starting stats setup
+│   │   ├── intro_engine.hpp / .cpp# Opening story, Title Screen, 2x2 Party Creation & Virtual Keyboard engine
 │   │   ├── cutscene_engine.hpp / .cpp# Opening Bridge, Airship Rising & Ending Credits sequence player
 │   │   └── minigame_engine.hpp / .cpp# 15-Puzzle Ship mini-game board & rewards
 │   └── ui/
 │       ├── window_box.hpp / .cpp  # Classic NES border box window renderer
 │       └── font.hpp / .cpp        # 8x8 font character drawing
 └── tests/
-    └── test_loader.cpp            # Comprehensive 16-test automated verification suite
+    └── test_loader.cpp            # Comprehensive 25-test automated verification suite
 ```
 
 ---
 
 ## 🎮 Controls
 
-| Key | Action |
-| :--- | :--- |
-| **Arrow Keys / WASD** | Walk Player (Up, Down, Left, Right) |
-| **SPACE / RETURN** | Action (Talk to NPC / Open Treasure Chest / Unlock Door / Confirm in Combat) |
-| **M / TAB** | Toggle Party Status & Equipment Menu Overlay |
-| **B** | Trigger Area Monster Battle Simulation |
-| **C** | Trigger Opening Conelia Bridge Cutscene |
-| **P** | Trigger Secret 15-Puzzle Mini-Game |
-| **ESC** | Exit Application |
+| Key | Action | Context |
+| :--- | :--- | :--- |
+| **Arrow Keys / WASD** | Walk Player / Navigate Menus | Field / Combat / Menus |
+| **SPACE / RETURN / Z** | Confirm / Talk to NPC / Open Chest / Select Letter / Attack | General |
+| **BACKSPACE / DELETE / X** | Cancel / Delete Name Letter | Party Creation / Menus |
+| **TAB / RSHIFT** | Auto-Fill Name & Advance / Submit / Status Menu Overlay | Party Creation / Field |
+| **M** | Toggle Field Menu (Items, Equipment, Magic, Status) | Overworld & Towns |
+| **B** | Trigger Area Monster Battle Simulation | Overworld & Dungeons |
+| **C** | Trigger Opening Conelia Bridge Cutscene | Field |
+| **P** | Trigger Secret 15-Puzzle Mini-Game | Aboard Ship |
+| **T** | Warm Reset to Title Screen | General |
+| **ESC** | Exit Application | Global |
 
 ---
 
@@ -148,7 +142,7 @@ Coding/
         │   ├── 0C_8000_weapondata.bin
         │   ├── 0C_8140_armordata.bin
         │   └── ...
-        ├── bank_02.dat
+        ├── bank_00.dat .. bank_09_data.bin
         └── ...
 ```
 
@@ -176,7 +170,7 @@ Coding/
   .\build\ff1_cpp.exe
   ```
 
-- **Run Automated Verification Tests**:
+- **Run Automated Verification Tests (25 Tests)**:
   ```cmd
   .\build\test_loader.exe
   ```
