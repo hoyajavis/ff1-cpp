@@ -1,6 +1,7 @@
 #ifndef MAP_TYPES_HPP
 #define MAP_TYPES_HPP
 
+#include "game_types.hpp"
 #include <vector>
 #include <array>
 #include <string>
@@ -18,32 +19,6 @@ namespace SpecialTile {
     constexpr uint8_t DAMAGE_LAVA  = 0x06;
     constexpr uint8_t TELEPORT     = 0x80;
 }
-
-// Key Items required for doors / progression
-enum class KeyItem : uint8_t {
-    NONE = 0,
-    LUTE = 1,
-    CROWN = 2,
-    MYSTIC_KEY = 3,
-    CRYSTAL_EYE = 4,
-    HERB = 5,
-    TNT = 6,
-    CANAL = 7,
-    STAR_RUBY = 8,
-    ROD = 9,
-    ROSE = 10,
-    CHIME = 11,
-    TAIL = 12,
-    CUBE = 13,
-    BOTTLE = 14,
-    OXYALE = 15,
-    CANOE = 16,
-    LEVESTONE = 17,
-    EARTH_ORB = 18,
-    FIRE_ORB = 19,
-    WATER_ORB = 20,
-    AIR_ORB = 21
-};
 
 // 16x16 Macroblock TSA Tile Structure (composed of four 8x8 NES CHR sub-tiles)
 struct TSABlock {

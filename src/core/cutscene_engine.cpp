@@ -26,7 +26,11 @@ void CutsceneEngine::start_cutscene(CutsceneType type) {
         subtitles_ = {
             "Chaos has been vanquished in the past!",
             "The 2000 year time loop is broken.",
-            "Thank you for playing Final Fantasy I!"
+            "The 4 Light Warriors return to their own time.",
+            "Sarah, the King, and Matoya are waiting.",
+            "The four crystals shine with eternal hope.",
+            "CREDITS: PROGRAMMED BY SQUARE & ANTIGRAVITY",
+            "THE END"
         };
     }
 }
@@ -34,7 +38,8 @@ void CutsceneEngine::start_cutscene(CutsceneType type) {
 void CutsceneEngine::update() {
     if (!playing_) return;
     frame_counter_++;
-    if (frame_counter_ > 300) { // ~5 seconds per cutscene
+    int max_frames = (active_type_ == CutsceneType::ENDING_CREDITS) ? 700 : 300;
+    if (frame_counter_ > max_frames) {
         end_cutscene();
     }
 }

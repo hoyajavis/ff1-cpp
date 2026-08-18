@@ -43,6 +43,15 @@ public:
     void draw_cutscene(const CutsceneEngine& cutscene, const DataLoader& loader);
     void draw_puzzle(const MiniGameEngine& minigame, const DataLoader& loader);
 
+    // Field Menu & Sub-Screens
+    void draw_main_menu(const class MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader);
+    void draw_item_menu(const class MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader);
+    void draw_equip_menu(const class MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader);
+    void draw_magic_menu(const class MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader);
+    void draw_status_menu(const class MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader);
+    void draw_world_map_screen(const DataLoader& loader, int player_x, int player_y);
+    void draw_shop(const class MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader);
+
     // CHR Tile Rasterizer
     void draw_chr_tile(int px, int py, const PixelBuffer8x8& tile);
 

@@ -32,6 +32,9 @@ struct MapNPC {
     uint8_t graphic_id = 0;
     std::string dialogue;
     bool active = true;
+    int shop_id = -1;     // If >= 0, interacting opens shop
+    int battle_id = -1;   // If >= 0, interacting triggers battle formation
+    uint8_t quest_id = 0; // Special quest handler ID
 };
 
 struct MapChest {
@@ -49,11 +52,18 @@ public:
 
     void load_map(uint8_t map_id, MapType type);
 
-    bool can_move_to(int x, int y, VehicleType vehicle) const;
+    bool is_port_tile(int x, int y) const;
+    bool can_land_airship(int x, int y) const;
+    bool land_airship(GameSaveData& save_data, std::string& out_message);
+    bool can_move_to(int x, int y, VehicleType vehicle, const GameSaveData* save = nullptr) const;
+    bool move_player(Direction dir, GameSaveData& save_data, std::string& out_message, int& out_spike_battle);
     bool move_player(Direction dir, GameSaveData& save_data, std::string& out_message);
 
+    bool check_interaction(GameSaveData& save_data, std::string& out_message, int& out_shop_id, int& out_battle_id);
     bool check_interaction(GameSaveData& save_data, std::string& out_message);
+
     bool check_door_unlock(int target_x, int target_y, GameSaveData& save_data, std::string& out_message);
+    bool check_event_trigger(GameSaveData& save_data, std::string& out_message, int& out_spike_battle);
     bool check_event_trigger(GameSaveData& save_data, std::string& out_message);
 
     bool check_encounter(VehicleType vehicle);
@@ -66,6 +76,7 @@ public:
     const std::vector<MapChest>& get_chests() const { return chests_; }
 
     uint8_t get_tile_at(int x, int y) const;
+    void set_tile_at(int x, int y, uint8_t tile);
     int get_width() const { return width_; }
     int get_height() const { return height_; }
     std::string get_map_name() const { return current_map_name_; }

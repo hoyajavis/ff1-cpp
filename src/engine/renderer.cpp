@@ -2,6 +2,7 @@
 #include "chr_decoder.hpp"
 #include "ui/font.hpp"
 #include "ui/window_box.hpp"
+#include "core/menu_engine.hpp"
 #include <algorithm>
 #include <iostream>
 
@@ -216,6 +217,17 @@ void Renderer::draw_player(const PartyCharacter& lead_char, const DataLoader& lo
         hero_class_offset = 0x1D00;
         pal0 = {0x0F, 0x28, 0x30, 0x12};
         pal1 = {0x0F, 0x28, 0x30, 0x12};
+        // Draw airship ground shadow
+        for (int sy = 0; sy < 4; ++sy) {
+            for (int sx = 2; sx < 14; ++sx) {
+                int spx = px + sx;
+                int spy = py + 12 + sy;
+                if (spx < width_ && spy < height_) {
+                    buffer_[spy * width_ + spx] = 0xFF080810;
+                }
+            }
+        }
+        py -= 4; // Elevate in the air
     }
 
     size_t o_ul = hero_class_offset + (static_cast<size_t>(spr_tbl[0]) * 16);
@@ -348,19 +360,33 @@ void Renderer::draw_battle(const BattleEngine& battle, const GameSaveData& save_
 
         // Monster abbreviation tag
         Font::draw_string(buffer_.data(), width_, mx / 8, (my + 18) / 8, monsters[m].name.substr(0, 4));
+
+        // Target Cursor indicator
+        if (battle.get_state() == BattleState::TARGET_SELECT && battle.get_target_cursor() == m) {
+            Font::draw_string(buffer_.data(), width_, (mx - 10) / 8, (my + 4) / 8, ">");
+        }
     }
 
-    // 3. Draw 4 Party Heroes on Right Flank
+    // 3. Draw 4 Party Heroes on Right Flank with authentic poses & step-forward
     const auto& bank_02 = loader.get_chr_bank_02();
     for (size_t i = 0; i < 4; ++i) {
         const auto& hero = save_data.party[i];
+        HeroPose pose = battle.get_hero_pose(i, save_data);
+
         int hx = 184;
+        if (pose == HeroPose::STEP_FORWARD || pose == HeroPose::ATTACK_SWING) {
+            hx = 168; // Step forward 16 pixels left
+        }
         int hy = 24 + static_cast<int>(i) * 26;
 
         std::array<uint8_t, 4> hpal = loader.get_player_palette(hero.char_class);
 
-        // Stance: Left-facing (tbl_idx = 2) or Down crouch if fallen (tbl_idx = 7)
-        int tbl_idx = (hero.stats.hp == 0) ? 7 : 2;
+        int tbl_idx = 2; // Left-facing standing
+        if (pose == HeroPose::CROUCH) {
+            tbl_idx = 7; // Down/fallen crouch
+        } else if (pose == HeroPose::ATTACK_SWING) {
+            tbl_idx = 3; // Attack swing frame
+        }
         const uint8_t* spr_tbl = lut_PlayerMapmanSprTbl[tbl_idx];
 
         size_t hero_class_offset = 0x1000 + (static_cast<size_t>(hero.char_class) % 12) * 0x100;
@@ -392,14 +418,56 @@ void Renderer::draw_battle(const BattleEngine& battle, const GameSaveData& save_
     }
 
     // 4. Lower Combat UI
-    // Command Box (Bottom Left)
-    WindowBox::draw_box(buffer_.data(), width_, 0, 16, 15, 14);
-    Font::draw_string(buffer_.data(), width_, 2, 18, "FIGHT");
-    Font::draw_string(buffer_.data(), width_, 9, 18, "MAGIC");
-    Font::draw_string(buffer_.data(), width_, 2, 21, "DRINK");
-    Font::draw_string(buffer_.data(), width_, 9, 21, "ITEM");
-    Font::draw_string(buffer_.data(), width_, 2, 24, "RUN");
-    Font::draw_string(buffer_.data(), width_, 1, 18, ">");
+    BattleState bstate = battle.get_state();
+
+    if (bstate == BattleState::SUBMENU_MAGIC) {
+        // Magic Selection Sub-Menu
+        WindowBox::draw_box(buffer_.data(), width_, 0, 16, 15, 14);
+        uint8_t a_hero = battle.get_active_hero();
+        const auto& hero = save_data.party[a_hero];
+        uint8_t t_cur = battle.get_magic_tier_cursor();
+        uint8_t s_cur = battle.get_magic_slot_cursor();
+
+        std::string tier_header = "T" + std::to_string(t_cur + 1) + " MP:" +
+                                  std::to_string(hero.stats.mp[t_cur]) + "/" + std::to_string(hero.stats.max_mp[t_cur]);
+        Font::draw_string(buffer_.data(), width_, 2, 17, tier_header);
+
+        for (int s = 0; s < 3; ++s) {
+            uint8_t sp_id = hero.spells[t_cur][s];
+            if (sp_id != 0xFF) {
+                const auto& sp = loader.get_spell(sp_id);
+                Font::draw_string(buffer_.data(), width_, 3, 19 + s * 2, sp.name);
+            } else {
+                Font::draw_string(buffer_.data(), width_, 3, 19 + s * 2, "------");
+            }
+        }
+        Font::draw_string(buffer_.data(), width_, 1, 19 + s_cur * 2, ">");
+    } else if (bstate == BattleState::SUBMENU_ITEM) {
+        // Item Selection Sub-Menu
+        WindowBox::draw_box(buffer_.data(), width_, 0, 16, 15, 14);
+        Font::draw_string(buffer_.data(), width_, 2, 17, "ITEMS");
+        Font::draw_string(buffer_.data(), width_, 3, 19, "HEAL Potion (" + std::to_string(save_data.consumables.heal_potions) + ")");
+        Font::draw_string(buffer_.data(), width_, 3, 21, "PURE Potion (" + std::to_string(save_data.consumables.pure_potions) + ")");
+        Font::draw_string(buffer_.data(), width_, 3, 23, "TENT (" + std::to_string(save_data.consumables.tents) + ")");
+        Font::draw_string(buffer_.data(), width_, 1, 19 + battle.get_item_cursor() * 2, ">");
+    } else {
+        // Standard Command Box (Bottom Left)
+        WindowBox::draw_box(buffer_.data(), width_, 0, 16, 15, 14);
+        Font::draw_string(buffer_.data(), width_, 2, 18, "FIGHT");
+        Font::draw_string(buffer_.data(), width_, 9, 18, "MAGIC");
+        Font::draw_string(buffer_.data(), width_, 2, 21, "DRINK");
+        Font::draw_string(buffer_.data(), width_, 9, 21, "ITEM");
+        Font::draw_string(buffer_.data(), width_, 2, 24, "RUN");
+
+        if (bstate == BattleState::HERO_COMMAND_SELECT) {
+            uint8_t c_cur = battle.get_command_cursor();
+            if (c_cur == 0) Font::draw_string(buffer_.data(), width_, 1, 18, ">");
+            else if (c_cur == 1) Font::draw_string(buffer_.data(), width_, 8, 18, ">");
+            else if (c_cur == 2) Font::draw_string(buffer_.data(), width_, 1, 21, ">");
+            else if (c_cur == 3) Font::draw_string(buffer_.data(), width_, 8, 21, ">");
+            else if (c_cur == 4) Font::draw_string(buffer_.data(), width_, 1, 24, ">");
+        }
+    }
 
     // Party HP/MP Status (Bottom Right)
     WindowBox::draw_box(buffer_.data(), width_, 15, 16, 17, 14);
@@ -414,11 +482,34 @@ void Renderer::draw_battle(const BattleEngine& battle, const GameSaveData& save_
         Font::draw_string(buffer_.data(), width_, 24, row_y, "H" + hp_str);
     }
 
-    // Battle Log Banner (Top)
+    // Battle Narrative Banner (Top)
     WindowBox::draw_box(buffer_.data(), width_, 0, 0, 32, 4);
-    const auto& log = battle.get_log();
-    std::string msg = log.empty() ? "BATTLE IN PROGRESS" : log.back();
+    std::string msg = battle.get_current_narrative();
+    if (msg.empty()) {
+        const auto& log = battle.get_log();
+        msg = log.empty() ? "BATTLE IN PROGRESS" : log.back();
+    }
     Font::draw_string(buffer_.data(), width_, 1, 1, msg.substr(0, 30));
+
+    // Victory Summary Popup Box
+    if (bstate == BattleState::VICTORY_SUMMARY) {
+        WindowBox::draw_box(buffer_.data(), width_, 6, 8, 20, 10);
+        Font::draw_string(buffer_.data(), width_, 11, 9, "VICTORY!");
+        Font::draw_string(buffer_.data(), width_, 8, 11, "EXP UP: " + std::to_string(battle.get_reward_exp()) + " P");
+        Font::draw_string(buffer_.data(), width_, 8, 13, "GOLD:   " + std::to_string(battle.get_reward_gp()) + " G");
+        Font::draw_string(buffer_.data(), width_, 8, 15, "[SPACE] Continue");
+    }
+
+    // Level-Up Popup Box
+    if (bstate == BattleState::LEVEL_UP) {
+        const auto& lvl = battle.get_current_level_up();
+        WindowBox::draw_box(buffer_.data(), width_, 5, 6, 22, 14);
+        Font::draw_string(buffer_.data(), width_, 10, 7, "LEVEL UP!");
+        for (size_t m = 0; m < lvl.messages.size() && m < 5; ++m) {
+            Font::draw_string(buffer_.data(), width_, 7, 9 + static_cast<int>(m) * 2, lvl.messages[m]);
+        }
+        Font::draw_string(buffer_.data(), width_, 7, 18, "[SPACE] Continue");
+    }
 }
 
 void Renderer::draw_cutscene(const CutsceneEngine& cutscene, const DataLoader& loader) {
@@ -470,14 +561,64 @@ void Renderer::draw_cutscene(const CutsceneEngine& cutscene, const DataLoader& l
                 draw_chr_tile(hx + 8, hy + 8, subtile_dr);
             }
         }
+    } else if (type == CutsceneType::ENDING_CREDITS) {
+        // Grand Epilogue Cliff Horizon
+        for (int y = 0; y < 160; ++y) {
+            uint32_t sky = (y < 60) ? 0xFF001030 : ((y < 110) ? 0xFF102850 : 0xFF204870);
+            for (int x = 0; x < width_; ++x) {
+                buffer_[y * width_ + x] = sky;
+            }
+        }
+        // Golden sunrise glow
+        draw_rect(100, 70, 56, 30, 0xFF706030);
+
+        // Grassy Cliff on left
+        for (int cy = 110; cy < 160; ++cy) {
+            int cx_width = 160 - (cy - 110) * 2;
+            draw_rect(0, cy, std::max(0, cx_width), 1, 0xFF185018);
+        }
+
+        // 4 Light Warriors standing in profile on the cliff
+        const auto& bank_02 = loader.get_chr_bank_02();
+        const uint8_t* spr_tbl = lut_PlayerMapmanSprTbl[0]; // Facing RIGHT in profile
+
+        for (int h = 0; h < 4; ++h) {
+            int hx = 24 + h * 20;
+            int hy = 96;
+            std::array<uint8_t, 4> hpal = loader.get_player_palette(static_cast<ClassType>(h));
+            size_t hero_offset = 0x1000 + (h * 0x100);
+
+            size_t o_ul = hero_offset + (static_cast<size_t>(spr_tbl[0]) * 16);
+            size_t o_dl = hero_offset + (static_cast<size_t>(spr_tbl[2]) * 16);
+            size_t o_ur = hero_offset + (static_cast<size_t>(spr_tbl[4]) * 16);
+            size_t o_dr = hero_offset + (static_cast<size_t>(spr_tbl[6]) * 16);
+
+            if (o_ul + 16 <= bank_02.size() && o_dl + 16 <= bank_02.size() &&
+                o_ur + 16 <= bank_02.size() && o_dr + 16 <= bank_02.size()) {
+                PixelBuffer8x8 subtile_ul = CHRDecoder::decode_chr_tile(&bank_02[o_ul], hpal, false, false, true);
+                PixelBuffer8x8 subtile_dl = CHRDecoder::decode_chr_tile(&bank_02[o_dl], hpal, false, false, true);
+                PixelBuffer8x8 subtile_ur = CHRDecoder::decode_chr_tile(&bank_02[o_ur], hpal, false, false, true);
+                PixelBuffer8x8 subtile_dr = CHRDecoder::decode_chr_tile(&bank_02[o_dr], hpal, false, false, true);
+
+                draw_chr_tile(hx, hy, subtile_ul);
+                draw_chr_tile(hx, hy + 8, subtile_dl);
+                draw_chr_tile(hx + 8, hy, subtile_ur);
+                draw_chr_tile(hx + 8, hy + 8, subtile_dr);
+            }
+        }
+
+        std::string sub = cutscene.get_current_subtitle();
+        if (sub == "THE END") {
+            WindowBox::draw_box(buffer_.data(), width_, 10, 6, 12, 5);
+            Font::draw_string(buffer_.data(), width_, 13, 8, "THE END");
+        }
     } else {
-        // Generic starry ending scene
+        // Generic starry scene
         for (int y = 0; y < 160; ++y) {
             for (int x = 0; x < width_; ++x) {
                 buffer_[y * width_ + x] = 0xFF000000;
             }
         }
-        Font::draw_string(buffer_.data(), width_, 12, 8, "THE END");
     }
 
     // 2. Lower Narrative Subtitle Window (Y=160..240)
@@ -694,6 +835,442 @@ void Renderer::draw_name_input_screen(const IntroEngine& intro) {
 
     // Bottom caption: "SELECT  NAME"
     Font::draw_string(buffer_.data(), width_, 10, 24, "SELECT  NAME");
+}
+
+void Renderer::draw_main_menu(const MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader) {
+    (void)loader;
+    clear(0xFF0A1428); // Classic dark blue backdrop
+
+    // 1. Orbs Box (X=1, Y=1, W=10, H=6)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 1, 10, 6);
+    Font::draw_string(buffer_.data(), width_, 2, 2, "ORBS");
+    
+    uint32_t c_earth = save_data.orbs_lit[0] ? 0xFFE0C020 : 0xFF606060;
+    uint32_t c_fire  = save_data.orbs_lit[1] ? 0xFFE04040 : 0xFF606060;
+    uint32_t c_water = save_data.orbs_lit[2] ? 0xFF4080E0 : 0xFF606060;
+    uint32_t c_wind  = save_data.orbs_lit[3] ? 0xFF60E0E0 : 0xFF606060;
+
+    Font::draw_string(buffer_.data(), width_, 2, 3, "EARTH", c_earth);
+    Font::draw_string(buffer_.data(), width_, 2, 4, "FIRE", c_fire);
+    Font::draw_string(buffer_.data(), width_, 2, 5, "WATER", c_water);
+    Font::draw_string(buffer_.data(), width_, 2, 6, "WIND", c_wind);
+
+    // 2. Gold Box (X=1, Y=7, W=10, H=4)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 7, 10, 4);
+    Font::draw_string(buffer_.data(), width_, 2, 8, "GOLD");
+    Font::draw_string(buffer_.data(), width_, 2, 9, std::to_string(save_data.gold) + " G");
+
+    // 3. Command Menu Box (X=1, Y=11, W=10, H=12)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 11, 10, 12);
+    const char* options[5] = {"ITEM", "MAGIC", "WEAPON", "ARMOR", "STATUS"};
+    for (int i = 0; i < 5; ++i) {
+        Font::draw_string(buffer_.data(), width_, 3, 13 + i * 2, options[i]);
+    }
+    Font::draw_string(buffer_.data(), width_, 2, 13 + menu.get_main_cursor() * 2, ">");
+
+    // 4. Party Cards (X=12, Y=1, W=19, H=28)
+    WindowBox::draw_box(buffer_.data(), width_, 12, 1, 19, 28);
+    for (int i = 0; i < 4; ++i) {
+        const auto& hero = save_data.party[i];
+        int by = 2 + i * 6;
+
+        if (menu.get_state() == MenuState::LINEUP_SELECT && menu.get_char_cursor() == i) {
+            Font::draw_string(buffer_.data(), width_, 13, by, ">");
+        }
+
+        // Line 1: Name and Class
+        std::string class_str = IntroEngine::get_class_name(static_cast<uint8_t>(hero.char_class));
+        Font::draw_string(buffer_.data(), width_, 14, by, hero.name + " " + class_str);
+
+        // Line 2: Level & HP
+        std::string hp_str = "L" + std::to_string(hero.level) + " HP " + std::to_string(hero.stats.hp) + "/" + std::to_string(hero.stats.max_hp);
+        Font::draw_string(buffer_.data(), width_, 14, by + 1, hp_str);
+
+        // Line 3: Magic MP Matrix (Tier 1-4)
+        std::string mp_str1 = "MP:" + std::to_string(hero.stats.mp[0]) + "/" + std::to_string(hero.stats.mp[1]) + "/" + std::to_string(hero.stats.mp[2]) + "/" + std::to_string(hero.stats.mp[3]);
+        Font::draw_string(buffer_.data(), width_, 14, by + 2, mp_str1);
+
+        // Line 4: Magic MP Matrix (Tier 5-8)
+        std::string mp_str2 = "   " + std::to_string(hero.stats.mp[4]) + "/" + std::to_string(hero.stats.mp[5]) + "/" + std::to_string(hero.stats.mp[6]) + "/" + std::to_string(hero.stats.mp[7]);
+        Font::draw_string(buffer_.data(), width_, 14, by + 3, mp_str2);
+
+        // Status Ailment tag
+        if (hero.stats.hp == 0 || (hero.status_ailments & Status::DEATH)) {
+            Font::draw_string(buffer_.data(), width_, 24, by + 1, "DEAD", 0xFFE04040);
+        } else if (hero.status_ailments & Status::STONE) {
+            Font::draw_string(buffer_.data(), width_, 24, by + 1, "STON", 0xFFB0B0B0);
+        } else if (hero.status_ailments & Status::POISON) {
+            Font::draw_string(buffer_.data(), width_, 24, by + 1, "POIS", 0xFF60E060);
+        }
+    }
+
+    // Bottom Help Banner (X=1, Y=24, W=10, H=5)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 24, 10, 5);
+    Font::draw_string(buffer_.data(), width_, 2, 25, "SELECT:");
+    Font::draw_string(buffer_.data(), width_, 2, 26, "LINEUP");
+    Font::draw_string(buffer_.data(), width_, 2, 27, "M: EXIT");
+}
+
+void Renderer::draw_item_menu(const MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader) {
+    (void)loader;
+    clear(0xFF0A1428);
+
+    // Left Items Box (X=1, Y=1, W=19, H=22)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 1, 19, 22);
+    Font::draw_string(buffer_.data(), width_, 2, 2, "ITEMS");
+
+    std::vector<std::string> item_names = {
+        "HEAL  *" + std::to_string(save_data.consumables.heal_potions),
+        "PURE  *" + std::to_string(save_data.consumables.pure_potions),
+        "SOFT  *" + std::to_string(save_data.consumables.soft_potions),
+        "TENT  *" + std::to_string(save_data.consumables.tents),
+        "CABIN *" + std::to_string(save_data.consumables.cabins),
+        "HOUSE *" + std::to_string(save_data.consumables.houses)
+    };
+
+    for (size_t k = 0; k < static_cast<size_t>(KeyItem::COUNT); ++k) {
+        if (save_data.key_items_and_flags[k] > 0) {
+            KeyItemInfo info = get_key_item_info(static_cast<KeyItem>(k));
+            item_names.push_back(info.name);
+        }
+    }
+
+    int cur = menu.get_item_cursor();
+    for (size_t i = 0; i < item_names.size() && i < 8; ++i) {
+        Font::draw_string(buffer_.data(), width_, 4, 4 + i * 2, item_names[i]);
+    }
+    if (cur < 8) {
+        Font::draw_string(buffer_.data(), width_, 2, 4 + cur * 2, ">");
+    }
+
+    // Right Party Target Box (X=21, Y=1, W=10, H=22)
+    WindowBox::draw_box(buffer_.data(), width_, 21, 1, 10, 22);
+    Font::draw_string(buffer_.data(), width_, 22, 2, "PARTY");
+    for (int i = 0; i < 4; ++i) {
+        const auto& hero = save_data.party[i];
+        int by = 4 + i * 4;
+        if (menu.get_state() == MenuState::ITEM_TARGET_SELECT && menu.get_target_char_cursor() == i) {
+            Font::draw_string(buffer_.data(), width_, 22, by, ">");
+        }
+        Font::draw_string(buffer_.data(), width_, 23, by, hero.name);
+        Font::draw_string(buffer_.data(), width_, 23, by + 1, std::to_string(hero.stats.hp) + "/" + std::to_string(hero.stats.max_hp));
+    }
+
+    // Bottom Message Box (X=1, Y=24, W=30, H=5)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 24, 30, 5);
+    if (menu.get_state() == MenuState::CAMPING_SAVE_PROMPT) {
+        Font::draw_string(buffer_.data(), width_, 2, 25, "Rest & Save on Overworld?");
+        Font::draw_string(buffer_.data(), width_, 4, 27, "YES");
+        Font::draw_string(buffer_.data(), width_, 14, 27, "NO");
+        Font::draw_string(buffer_.data(), width_, (menu.get_camping_confirm_cursor() == 0 ? 3 : 13), 27, ">");
+    } else {
+        Font::draw_string(buffer_.data(), width_, 2, 25, "CONFIRM: Use/Select  CANCEL: Back");
+    }
+}
+
+void Renderer::draw_equip_menu(const MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader) {
+    clear(0xFF0A1428);
+
+    uint8_t c_idx = menu.get_char_cursor();
+    const auto& hero = save_data.party[c_idx];
+
+    // Top Header Window (X=1, Y=1, W=30, H=4)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 1, 30, 4);
+    std::string title = hero.name + " " + IntroEngine::get_class_name(static_cast<uint8_t>(hero.char_class));
+    Font::draw_string(buffer_.data(), width_, 2, 2, title);
+
+    const char* tabs[3] = {"[EQUIP]", "[TRADE]", "[DROP]"};
+    int tab_idx = static_cast<int>(menu.get_equip_tab());
+    Font::draw_string(buffer_.data(), width_, 16, 2, tabs[0], tab_idx == 0 ? 0xFFE0C020 : 0xFFFFFFFF);
+    Font::draw_string(buffer_.data(), width_, 21, 2, tabs[1], tab_idx == 1 ? 0xFFE0C020 : 0xFFFFFFFF);
+    Font::draw_string(buffer_.data(), width_, 26, 2, tabs[2], tab_idx == 2 ? 0xFFE0C020 : 0xFFFFFFFF);
+
+    // Left Slots Window (X=1, Y=5, W=18, H=18)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 5, 18, 18);
+    Font::draw_string(buffer_.data(), width_, 2, 6, "WEAPONS");
+    for (int i = 0; i < 4; ++i) {
+        uint8_t wid = hero.weapons[i];
+        std::string wname = (wid == 0xFF) ? "---" : ("E-" + loader.get_weapon(wid).name);
+        Font::draw_string(buffer_.data(), width_, 4, 7 + i, wname);
+    }
+
+    Font::draw_string(buffer_.data(), width_, 2, 12, "ARMORS");
+    for (int i = 0; i < 4; ++i) {
+        uint8_t aid = hero.armors[i];
+        std::string aname = (aid == 0xFF) ? "---" : ("E-" + loader.get_armor(aid).name);
+        Font::draw_string(buffer_.data(), width_, 4, 13 + i, aname);
+    }
+
+    // Draw slot cursor
+    uint8_t sc = menu.get_equip_slot_cursor();
+    if (sc < 4) {
+        Font::draw_string(buffer_.data(), width_, 2, 7 + sc, ">");
+    } else {
+        Font::draw_string(buffer_.data(), width_, 2, 13 + (sc - 4), ">");
+    }
+
+    // Right Stats Window (X=20, Y=5, W=11, H=18)
+    WindowBox::draw_box(buffer_.data(), width_, 20, 5, 11, 18);
+    Font::draw_string(buffer_.data(), width_, 21, 6, "STATS");
+    Font::draw_string(buffer_.data(), width_, 21, 8, "DMG  " + std::to_string(hero.stats.damage));
+    Font::draw_string(buffer_.data(), width_, 21, 10, "HIT% " + std::to_string(hero.stats.hit_rate));
+    Font::draw_string(buffer_.data(), width_, 21, 12, "ABS  " + std::to_string(hero.stats.absorb));
+    Font::draw_string(buffer_.data(), width_, 21, 14, "EVA% " + std::to_string(hero.stats.evade));
+
+    // Bottom Controls Info (X=1, Y=24, W=30, H=5)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 24, 30, 5);
+    Font::draw_string(buffer_.data(), width_, 2, 25, "SELECT: Tab  CONFIRM: Action");
+    Font::draw_string(buffer_.data(), width_, 2, 26, "LEFT/RIGHT: Hero  CANCEL: Back");
+}
+
+void Renderer::draw_magic_menu(const MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader) {
+    (void)loader;
+    clear(0xFF0A1428);
+
+    uint8_t c_idx = menu.get_char_cursor();
+    const auto& hero = save_data.party[c_idx];
+
+    // Top Header Window (X=1, Y=1, W=30, H=4)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 1, 30, 4);
+    std::string title = hero.name + " " + IntroEngine::get_class_name(static_cast<uint8_t>(hero.char_class)) + " MAGIC";
+    Font::draw_string(buffer_.data(), width_, 2, 2, title);
+
+    // 8-Tier Magic Grid Box (X=1, Y=5, W=21, H=18)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 5, 21, 18);
+
+    for (int t = 0; t < 8; ++t) {
+        int ty = 6 + t * 2;
+        std::string tier_hdr = "L" + std::to_string(t + 1) + "[" + std::to_string(hero.stats.mp[t]) + "]:";
+        Font::draw_string(buffer_.data(), width_, 2, ty, tier_hdr);
+
+        for (int s = 0; s < 3; ++s) {
+            uint8_t sp_id = hero.spells[t][s];
+            std::string sp_name = (sp_id == 0xFF) ? "---" : loader.get_spell(sp_id).name;
+            Font::draw_string(buffer_.data(), width_, 8 + s * 4, ty, sp_name);
+        }
+    }
+
+    // Cursor indicator
+    uint8_t cur = menu.get_magic_cursor();
+    int cur_tier = cur / 3;
+    int cur_slot = cur % 3;
+    Font::draw_string(buffer_.data(), width_, 7 + cur_slot * 4, 6 + cur_tier * 2, ">");
+
+    // Right Target Box (X=23, Y=5, W=8, H=18)
+    WindowBox::draw_box(buffer_.data(), width_, 23, 5, 8, 18);
+    Font::draw_string(buffer_.data(), width_, 24, 6, "PARTY");
+    for (int i = 0; i < 4; ++i) {
+        const auto& h = save_data.party[i];
+        int by = 8 + i * 3;
+        if (menu.get_state() == MenuState::MAGIC_TARGET_SELECT && menu.get_target_char_cursor() == i) {
+            Font::draw_string(buffer_.data(), width_, 23, by, ">");
+        }
+        Font::draw_string(buffer_.data(), width_, 24, by, h.name);
+        Font::draw_string(buffer_.data(), width_, 24, by + 1, std::to_string(h.stats.hp));
+    }
+
+    // Bottom Help Banner (X=1, Y=24, W=30, H=5)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 24, 30, 5);
+    Font::draw_string(buffer_.data(), width_, 2, 25, "CONFIRM: Cast Field Spell");
+    Font::draw_string(buffer_.data(), width_, 2, 26, "LEFT/RIGHT: Hero  CANCEL: Back");
+}
+
+void Renderer::draw_status_menu(const MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader) {
+    (void)loader;
+    clear(0xFF0A1428);
+
+    uint8_t c_idx = menu.get_char_cursor();
+    const auto& hero = save_data.party[c_idx];
+
+    // Top Header (X=1, Y=1, W=30, H=4)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 1, 30, 4);
+    std::string title = hero.name + " " + IntroEngine::get_class_name(static_cast<uint8_t>(hero.char_class)) + "  LEV " + std::to_string(hero.level);
+    Font::draw_string(buffer_.data(), width_, 2, 2, title);
+
+    // EXP Box (X=1, Y=5, W=30, H=5)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 5, 30, 5);
+    Font::draw_string(buffer_.data(), width_, 2, 6, "EXP. POINTS: " + std::to_string(hero.exp));
+    uint32_t needed = MenuEngine::get_exp_needed_for_next_level(hero.level, hero.exp);
+    Font::draw_string(buffer_.data(), width_, 2, 7, "FOR LEV UP:  " + std::to_string(needed));
+
+    // Base Attributes Panel (X=1, Y=11, W=15, H=12)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 11, 15, 12);
+    Font::draw_string(buffer_.data(), width_, 2, 12, "ATTRIBUTES");
+    Font::draw_string(buffer_.data(), width_, 2, 14, "STR.  " + std::to_string(hero.stats.strength));
+    Font::draw_string(buffer_.data(), width_, 2, 16, "AGI.  " + std::to_string(hero.stats.agility));
+    Font::draw_string(buffer_.data(), width_, 2, 18, "INT.  " + std::to_string(hero.stats.intelligence));
+    Font::draw_string(buffer_.data(), width_, 2, 20, "VIT.  " + std::to_string(hero.stats.vitality));
+    Font::draw_string(buffer_.data(), width_, 2, 21, "LUCK  " + std::to_string(hero.stats.luck));
+
+    // Combat Parameters Panel (X=17, Y=11, W=14, H=12)
+    WindowBox::draw_box(buffer_.data(), width_, 17, 11, 14, 12);
+    Font::draw_string(buffer_.data(), width_, 18, 12, "COMBAT STATS");
+    Font::draw_string(buffer_.data(), width_, 18, 14, "DAMAGE  " + std::to_string(hero.stats.damage));
+    Font::draw_string(buffer_.data(), width_, 18, 16, "HIT %   " + std::to_string(hero.stats.hit_rate));
+    Font::draw_string(buffer_.data(), width_, 18, 18, "ABSORB  " + std::to_string(hero.stats.absorb));
+    Font::draw_string(buffer_.data(), width_, 18, 20, "EVADE % " + std::to_string(hero.stats.evade));
+
+    // Bottom Box (X=1, Y=24, W=30, H=5)
+    WindowBox::draw_box(buffer_.data(), width_, 1, 24, 30, 5);
+    Font::draw_string(buffer_.data(), width_, 2, 25, "LEFT/RIGHT: Switch Hero");
+    Font::draw_string(buffer_.data(), width_, 2, 26, "CONFIRM/CANCEL: Back to Menu");
+}
+
+void Renderer::draw_world_map_screen(const DataLoader& loader, int player_x, int player_y) {
+    clear(0xFF000000);
+
+    // Ornate World Map Border (X=2, Y=1, W=28, H=28)
+    WindowBox::draw_box(buffer_.data(), width_, 2, 1, 28, 28);
+    Font::draw_string(buffer_.data(), width_, 11, 2, "WORLD MAP");
+
+    const auto& ow_map = loader.get_overworld_map();
+    int map_origin_x = 64; // pixel coords (256/2 - 128/2 = 64)
+    int map_origin_y = 32;
+
+    if (ow_map.size() >= 256 * 256) {
+        for (int my = 0; my < 128; ++my) {
+            for (int mx = 0; mx < 128; ++mx) {
+                // Downsample 2x2 macroblock into 1 pixel
+                uint8_t tile = ow_map[(my * 2) * 256 + (mx * 2)];
+                uint32_t pcol = 0xFF145214; // Default grass green
+                if (tile == 1) pcol = 0xFF0E380E; // Forest dark green
+                else if (tile == 2) pcol = 0xFF8A6A40; // Mountain brown
+                else if (tile == 3) pcol = 0xFF183890; // Ocean dark blue
+                else if (tile >= 10 && tile <= 13) pcol = 0xFFE0C020; // Town/Castle yellow
+
+                int sx = map_origin_x + mx;
+                int sy = map_origin_y + my;
+                if (sx >= 0 && sx < width_ && sy >= 0 && sy < height_) {
+                    buffer_[sy * width_ + sx] = pcol;
+                }
+            }
+        }
+    } else {
+        // Fallback procedural mini-map
+        draw_rect(map_origin_x, map_origin_y, 128, 128, 0xFF183890);
+        draw_rect(map_origin_x + 30, map_origin_y + 30, 68, 68, 0xFF145214);
+    }
+
+    // Blinking Player Crosshair (+)
+    if ((frame_counter_ / 15) % 2 == 0) {
+        int px = map_origin_x + (player_x / 2);
+        int py = map_origin_y + (player_y / 2);
+        draw_rect(px - 2, py, 5, 1, 0xFFFFFFFF);
+        draw_rect(px, py - 2, 1, 5, 0xFFFFFFFF);
+    }
+
+    // Location coordinates & help banner
+    std::string loc_str = "X:" + std::to_string(player_x) + " Y:" + std::to_string(player_y);
+    Font::draw_string(buffer_.data(), width_, 4, 25, loc_str);
+    Font::draw_string(buffer_.data(), width_, 14, 25, "[M/ESC]: Close");
+}
+
+void Renderer::draw_shop(const MenuEngine& menu, const GameSaveData& save_data, const DataLoader& loader) {
+    (void)loader;
+    clear(0xFF000000);
+    const auto& shop = menu.get_current_shop();
+    ShopMode mode = menu.get_shop_mode();
+    uint8_t cursor = menu.get_shop_cursor();
+    uint8_t sub_cursor = menu.get_shop_sub_cursor();
+
+    // 1. Top-Left Box: Shopkeeper / Counter Area (X=0, Y=0, W=16, H=10)
+    WindowBox::draw_box(buffer_.data(), width_, 0, 0, 16, 10);
+    std::string shop_title = "SHOP";
+    switch (shop.type) {
+        case ShopType::WEAPON: shop_title = "WEAPON SHOP"; break;
+        case ShopType::ARMOR: shop_title = "ARMOR SHOP"; break;
+        case ShopType::WHITE_MAGIC: shop_title = "WHITE MAGIC"; break;
+        case ShopType::BLACK_MAGIC: shop_title = "BLACK MAGIC"; break;
+        case ShopType::ITEM: shop_title = "ITEM SHOP"; break;
+        case ShopType::CARAVAN: shop_title = "CARAVAN"; break;
+        case ShopType::INN: shop_title = "INN"; break;
+        case ShopType::CLINIC: shop_title = "CLINIC"; break;
+    }
+    Font::draw_string(buffer_.data(), width_, 2, 1, shop_title);
+
+    // Draw Shopkeeper counter and avatar
+    draw_rect(32, 32, 64, 32, 0xFF402818); // Wooden Counter
+    draw_rect(56, 16, 16, 16, 0xFF5090D0); // Shopkeeper Sprite Head
+    Font::draw_string(buffer_.data(), width_, 7, 2, "o_o");
+
+    // 2. Top-Right Box: Party GP & Status / Action selection (X=16, Y=0, W=16, H=10)
+    WindowBox::draw_box(buffer_.data(), width_, 16, 0, 16, 10);
+    Font::draw_string(buffer_.data(), width_, 18, 1, "GOLD");
+    Font::draw_string(buffer_.data(), width_, 18, 2, std::to_string(save_data.gold) + " G");
+
+    if (mode == ShopMode::BUY_SELL_EXIT) {
+        bool has_sell = (shop.type == ShopType::WEAPON || shop.type == ShopType::ARMOR);
+        Font::draw_string(buffer_.data(), width_, 19, 4, "BUY");
+        if (has_sell) {
+            Font::draw_string(buffer_.data(), width_, 19, 5, "SELL");
+            Font::draw_string(buffer_.data(), width_, 19, 6, "EXIT");
+            Font::draw_string(buffer_.data(), width_, 18, 4 + cursor, ">");
+        } else {
+            Font::draw_string(buffer_.data(), width_, 19, 5, "EXIT");
+            Font::draw_string(buffer_.data(), width_, 18, 4 + cursor, ">");
+        }
+    }
+
+    // 3. Bottom-Left Box: Item Inventory / Hero Selector (X=0, Y=10, W=16, H=14)
+    WindowBox::draw_box(buffer_.data(), width_, 0, 10, 16, 14);
+
+    if (mode == ShopMode::BUY_SELECT_ITEM) {
+        for (int i = 0; i < 4; ++i) {
+            uint8_t item_id = shop.items[i];
+            if (item_id != 0xFF) {
+                std::string iname = menu.get_item_name(shop.type, item_id);
+                uint32_t price = menu.get_item_price(shop.type, item_id);
+                Font::draw_string(buffer_.data(), width_, 2, 12 + i * 2, iname);
+                Font::draw_string(buffer_.data(), width_, 2, 13 + i * 2, std::to_string(price) + " G");
+            } else {
+                Font::draw_string(buffer_.data(), width_, 2, 12 + i * 2, "--");
+            }
+        }
+        Font::draw_string(buffer_.data(), width_, 1, 12 + cursor * 2, ">");
+    } else if (mode == ShopMode::BUY_CHOOSE_HERO || mode == ShopMode::SELL_CHOOSE_HERO || mode == ShopMode::CLINIC_SELECT_HERO) {
+        for (int i = 0; i < 4; ++i) {
+            const auto& hero = save_data.party[i];
+            std::string hstr = hero.name + " " + std::to_string(hero.stats.hp) + "/" + std::to_string(hero.stats.max_hp);
+            Font::draw_string(buffer_.data(), width_, 2, 12 + i * 2, hstr);
+        }
+        Font::draw_string(buffer_.data(), width_, 1, 12 + cursor * 2, ">");
+    } else if (mode == ShopMode::SELL_SELECT_ITEM) {
+        uint8_t target_h = menu.get_shop_target_hero();
+        const auto& hero = save_data.party[target_h];
+        for (int i = 0; i < 4; ++i) {
+            uint8_t item_id = (shop.type == ShopType::WEAPON) ? hero.weapons[i] : hero.armors[i];
+            if (item_id != 0xFF) {
+                std::string iname = menu.get_item_name(shop.type, item_id);
+                uint32_t sprice = menu.get_sell_price(shop.type, item_id);
+                Font::draw_string(buffer_.data(), width_, 2, 12 + i * 2, iname);
+                Font::draw_string(buffer_.data(), width_, 2, 13 + i * 2, std::to_string(sprice) + " G");
+            } else {
+                Font::draw_string(buffer_.data(), width_, 2, 12 + i * 2, "--");
+            }
+        }
+        Font::draw_string(buffer_.data(), width_, 1, 12 + cursor * 2, ">");
+    }
+
+    // 4. Bottom-Right Box: Shop Dialogue & Confirmation (X=16, Y=10, W=16, H=14)
+    WindowBox::draw_box(buffer_.data(), width_, 16, 10, 16, 14);
+    std::string dlg = menu.get_shop_dialogue();
+
+    // Wrap dialogue text into 14-char lines
+    size_t dpos = 0;
+    int line_num = 0;
+    while (dpos < dlg.size() && line_num < 4) {
+        std::string chunk = dlg.substr(dpos, 14);
+        Font::draw_string(buffer_.data(), width_, 18, 12 + line_num, chunk);
+        dpos += 14;
+        line_num++;
+    }
+
+    // Yes/No confirmation options
+    if (mode == ShopMode::BUY_CONFIRM || mode == ShopMode::SELL_CONFIRM || mode == ShopMode::INN_PROMPT || mode == ShopMode::CLINIC_CONFIRM) {
+        Font::draw_string(buffer_.data(), width_, 19, 18, "YES");
+        Font::draw_string(buffer_.data(), width_, 19, 20, "NO");
+        Font::draw_string(buffer_.data(), width_, 18, 18 + sub_cursor * 2, ">");
+    }
 }
 
 } // namespace ff1

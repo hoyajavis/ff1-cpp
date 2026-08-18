@@ -17,6 +17,13 @@ bool SaveSystem::save_game(const std::string& filepath, const GameSaveData& data
     out.write(reinterpret_cast<const char*>(&data.cur_map), sizeof(data.cur_map));
     out.write(reinterpret_cast<const char*>(&data.player_x), sizeof(data.player_x));
     out.write(reinterpret_cast<const char*>(&data.player_y), sizeof(data.player_y));
+    out.write(reinterpret_cast<const char*>(&data.ship_x), sizeof(data.ship_x));
+    out.write(reinterpret_cast<const char*>(&data.ship_y), sizeof(data.ship_y));
+    out.write(reinterpret_cast<const char*>(&data.ship_visible), sizeof(data.ship_visible));
+    out.write(reinterpret_cast<const char*>(&data.has_canoe), sizeof(data.has_canoe));
+    out.write(reinterpret_cast<const char*>(&data.airship_x), sizeof(data.airship_x));
+    out.write(reinterpret_cast<const char*>(&data.airship_y), sizeof(data.airship_y));
+    out.write(reinterpret_cast<const char*>(&data.airship_visible), sizeof(data.airship_visible));
 
     for (int i = 0; i < 4; ++i) {
         const auto& ch = data.party[i];
@@ -34,6 +41,8 @@ bool SaveSystem::save_game(const std::string& filepath, const GameSaveData& data
         out.write(reinterpret_cast<const char*>(ch.spells.data()), 24);
     }
 
+    out.write(reinterpret_cast<const char*>(&data.consumables), sizeof(data.consumables));
+    out.write(reinterpret_cast<const char*>(data.orbs_lit.data()), 4);
     out.write(reinterpret_cast<const char*>(data.key_items_and_flags.data()), 256);
     out.write(reinterpret_cast<const char*>(data.opened_chests.data()), 256);
 
@@ -53,6 +62,13 @@ bool SaveSystem::load_game(const std::string& filepath, GameSaveData& data) {
     in.read(reinterpret_cast<char*>(&data.cur_map), sizeof(data.cur_map));
     in.read(reinterpret_cast<char*>(&data.player_x), sizeof(data.player_x));
     in.read(reinterpret_cast<char*>(&data.player_y), sizeof(data.player_y));
+    in.read(reinterpret_cast<char*>(&data.ship_x), sizeof(data.ship_x));
+    in.read(reinterpret_cast<char*>(&data.ship_y), sizeof(data.ship_y));
+    in.read(reinterpret_cast<char*>(&data.ship_visible), sizeof(data.ship_visible));
+    in.read(reinterpret_cast<char*>(&data.has_canoe), sizeof(data.has_canoe));
+    in.read(reinterpret_cast<char*>(&data.airship_x), sizeof(data.airship_x));
+    in.read(reinterpret_cast<char*>(&data.airship_y), sizeof(data.airship_y));
+    in.read(reinterpret_cast<char*>(&data.airship_visible), sizeof(data.airship_visible));
 
     for (int i = 0; i < 4; ++i) {
         auto& ch = data.party[i];
@@ -75,6 +91,10 @@ bool SaveSystem::load_game(const std::string& filepath, GameSaveData& data) {
         in.read(reinterpret_cast<char*>(ch.spells.data()), 24);
     }
 
+    if (in.peek() != EOF) {
+        in.read(reinterpret_cast<char*>(&data.consumables), sizeof(data.consumables));
+        in.read(reinterpret_cast<char*>(data.orbs_lit.data()), 4);
+    }
     in.read(reinterpret_cast<char*>(data.key_items_and_flags.data()), 256);
     in.read(reinterpret_cast<char*>(data.opened_chests.data()), 256);
 

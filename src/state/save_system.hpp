@@ -15,7 +15,18 @@ struct GameSaveData {
     uint8_t player_x = 0;
     uint8_t player_y = 0;
 
+    // Vehicle persistence
+    uint8_t ship_x = 140;
+    uint8_t ship_y = 150;
+    bool ship_visible = false;
+    bool has_canoe = false;
+    uint8_t airship_x = 175;
+    uint8_t airship_y = 180;
+    bool airship_visible = false;
+
     std::array<PartyCharacter, 4> party;
+    Consumables consumables;
+    std::array<bool, 4> orbs_lit = {false, false, false, false};
     std::array<uint8_t, 256> key_items_and_flags = {};
     std::array<uint8_t, 256> opened_chests = {};
 

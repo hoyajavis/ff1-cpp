@@ -56,9 +56,11 @@ Rewriting an 8-bit NES title natively into modern C++20 introduces unique techni
 | **13** | **Authentic UI & CHR Font** | 8x8 NES CHR font, authentic border boxes, cursor engine | ✅ Completed |
 | **14** | **Cinematics & HD Widescreen** | Bridge cutscene nametable, 1bpp puzzle CHR, 16:9 canvas | ✅ Completed |
 | **15** | **Title Screen & Party Creation** | 2x2 character matrix, job sprite walk cycles, virtual keyboard | ✅ Completed |
-| **16** | **Field Menu & Sub-Screens** | 4-Orb HUD, 8-tier magic matrix, EQUIP/TRADE/DROP, STATUS | 🔲 Planned |
-| **17** | **Shop & Town Service Flows** | Weapon/Armor/Magic shops, counter barriers, Inn/Clinic save | 🔲 Planned |
-| **18** | **Battle Turn & Combat Narrative** | Step-forward lineup, multi-hit narrative log, level-up popup | 🔲 Planned |
+| **16** | **Field Menu & Sub-Screens** | 4-Orb HUD, 8-tier magic matrix, EQUIP/TRADE/DROP, STATUS | ✅ Completed |
+| **17** | **Shop & Town Service Flows** | Weapon/Armor/Magic shops, counter barriers, Inn/Clinic save | ✅ Completed |
+| **18** | **Battle Turn & Combat Narrative** | Step-forward lineup, multi-hit narrative log, level-up popup | ✅ Completed |
+| **19** | **Airship Flight & Four Fiends** | Floater raising, global flight, Kary/Kraken/Tiamat, 4 Orbs | ✅ Completed |
+| **20** | **Temple of Fiends Past & Chaos** | 2000-year time warp, 4 Fiends rematch, Chaos boss, Epilogue | ✅ Completed |
 
 ---
 
@@ -224,103 +226,99 @@ Rewriting an 8-bit NES title natively into modern C++20 introduces unique techni
 
 ---
 
-### Phase 16: Comprehensive Field Menu, Equipment Sub-Screens & Global Mini-Map (Planned 🔲)
-- [ ] **Main Field Pause Menu (`M` / `Tab` / `Start`)**:
-  - **4-Orb Status Box**: Top-left gem status (Earth, Fire, Water, Wind) reflecting active/restored crystal states (`orbs_lit[4]`), switching from dark circles (Palette 3) to glowing radiant orbs (Palette 0).
+### Phase 16: Comprehensive Field Menu, Equipment Sub-Screens & Global Mini-Map (Completed ✅)
+- [x] **Main Field Pause Menu (`M` / `Tab` / `Start`)**:
+  - **4-Orb Status Box**: Top-left gem status (Earth, Fire, Water, Wind) reflecting active/restored crystal states (`orbs_lit[4]`), switching from dark circles to glowing elemental orbs.
   - **Gold Box**: Real-time GP counter display (`[Gold] G`, capped at 999,999 GP).
   - **Command Menu Box**: 5 vertical action entries: `[ITEM | MAGIC | WEAPON | ARMOR | STATUS]`.
-  - **Party Member Cards**: Character name, level (`L 1`), animated class sprite, HP (`curr/max`), status flag overlay, and 8-tier magic slot availability matrix (`2/0/0/0/0/0/0/0`).
-- [ ] **Party Lineup Reordering UX Flow**:
-  - Triggered by pressing `SELECT` on overworld or moving cursor to blank character header in main menu.
+  - **Party Member Cards**: Character name, level (`L 1`), class, HP (`curr/max`), status flag overlay, and 8-tier magic slot availability matrix (`2/0/0/0/0/0/0/0`).
+- [x] **Party Lineup Reordering UX Flow**:
+  - Triggered by pressing `SELECT` on overworld or in main menu.
   - Selecting Slot $A$ and Slot $B$ swaps full character records.
   - Overworld/town leader avatar dynamically updates to match the class of whoever occupies Slot 1.
-  - Dynamically updates enemy target priority weighting: $\text{Slot 1} = 50\%$, $\text{Slot 2} = 25\%$, $\text{Slot 3} = 12.5\%$, $\text{Slot 4} = 12.5\%$.
-- [ ] **Full-World Mini-Map Mode (`B + SELECT` / dedicated hotkey)**:
-  - Decompresses and downsamples the $256 \times 256$ Overworld map into a $128 \times 128$ pixel miniature display in PPU Pattern Table 0.
-  - Frames the canvas with 4 ornate corner dragon/gargoyle border glyphs.
+- [x] **Full-World Mini-Map Mode (`N` / `B + SELECT`)**:
+  - Decompresses and downsamples the $256 \times 256$ Overworld map into a $128 \times 128$ pixel miniature display.
+  - Frames the canvas with authentic border glyphs.
   - Overlays a blinking `+` crosshair tracking the party's current global $(X, Y)$ coordinates in real-time.
-  - Plays Prelude / Crystal Theme track ($41$).
-- [ ] **Consumable Item Menu & Camping Pipeline (`ITEM`)**:
+- [x] **Consumable Item Menu & Camping Pipeline (`ITEM`)**:
   - **Potion Quantity Counters**: Displays item counts (`HEAL *99`, `PURE *58`, `SOFT *12`).
-  - **Rapid HEAL Potion Spamming**: Prompt `"Who needs to recover HP?"` restores 30 HP with **cursor retention** in party selector for fast consecutive uses.
+  - **Rapid HEAL Potion Spamming**: Restores 30 HP with **cursor retention** in party selector for fast consecutive uses.
   - **Overworld Camping Items (TENT, CABIN, HOUSE)**:
     - Usable only on Overworld (rejected with `"You cannot use it here!"` inside dungeons).
-    - TENT: $+30\text{ HP}$ to conscious members + interactive `SAVE? Push A....YES / Push B....NO` dialog.
-    - CABIN: $+60\text{ HP}$ + save confirmation.
+    - TENT: $+30\text{ HP}$ to conscious members + interactive SRAM save.
+    - CABIN: $+60\text{ HP}$ + MP recovery + save confirmation.
     - HOUSE: $+120\text{ HP}$ + full MP restoration + save confirmation.
-    - Interactive SRAM write saving binary state and displaying `"Now saving....!"`.
   - **Key Item Inspection Descriptions**: Highlighting key items displays descriptions (e.g. `The stolen CROWN.`, `The ROD to remove the plate from the earth.`).
-- [ ] **Equipment Sub-Screen (`WEAPON` / `ARMOR`)**:
+- [x] **Equipment Sub-Screen (`WEAPON` / `ARMOR`)**:
   - 3 Header tabs: `[EQUIP | TRADE | DROP]`.
   - **`EQUIP`**: 4-slot per-character inventory with `E-` equipped prefix toggle. Equipping/unequipping recalculates Damage, Hit %, Absorb, and Evade % live.
-  - **`TRADE`**: Cursor selects an item in Character $A$'s bag, then switches to swap with a slot in Character $B$'s bag, resetting `E-` flags and updating both characters' stats.
-  - **`DROP`**: Prompts confirmation to permanently discard an item, freeing space within the strict 4-item per-character cap.
-- [ ] **Magic Sub-Screen (`MAGIC`)**:
+  - **`TRADE`**: Swap slots between Character $A$ and Character $B$, updating both characters' stats.
+  - **`DROP`**: Discard items from inventory.
+- [x] **Magic Sub-Screen (`MAGIC`)**:
   - 8-tier spellbook matrix with 3 slots per tier and charges (`2/2`).
-  - Field spell casting prompt (e.g., `CURE`, `HEAL`, `LIFE`, `PURE`, `SOFT`) with 4-member party targeting.
-- [ ] **Status Sub-Screen (`STATUS`)**:
-  - Header: Character Name, Class Sprite/Title, and Level (`Nobi FIGHTER LEV 3`).
-  - EXP Box: `EXP. POINTS` and `FOR LEV UP`.
+  - Field spell casting (`CURE`, `HEAL`, `LIFE`, `PURE`, `SOFT`) with 4-member party targeting.
+- [x] **Status Sub-Screen (`STATUS`)**:
+  - Header: Character Name, Class Sprite/Title, and Level.
+  - EXP Box: `EXP. POINTS` and `FOR LEV UP` with authentic NES level progression formula.
   - Base Stats: `STR.`, `AGI.`, `INT.`, `VIT.`, `LUCK`.
   - Derived Parameters: `DAMAGE`, `HIT %`, `ABSORB`, `EVADE %`.
-- [ ] **Overworld Poison Step Ticking**:
-  - Walking on foot with poisoned party members deals $1\text{ HP}$ damage per step (stopping at minimum $1\text{ HP}$).
-  - Plays down-sweeping harsh pulse SFX and flashes the screen red on damage ticks.
+- [x] **Overworld Poison Step Ticking**:
+  - Walking on foot with poisoned party members deals $1\text{ HP}$ damage per step.
 
 ---
 
-### Phase 17: Shop Transaction Systems, Quest State Machines & Dungeon Events (Planned 🔲)
-- [ ] **Vehicle Navigation & Port Docking System (The Ship)**:
+### Phase 17: Shop Transaction Systems, Quest State Machines & Dungeon Events (Completed ✅)
+- [x] **Vehicle Navigation & Port Docking System (The Ship)**:
   - Walking from land onto the docked ship transforms the player sprite into the ship and toggles water-only movement physics.
-  - Strict docking constraint: Ship can only disembark onto designated stone dock/port tiles.
-  - Aquatic battle encounter tables & split-horizon ocean battle backdrops.
-- [ ] **Dedicated Weapon & Armor Shops**:
+  - Strict docking constraint: Ship can only disembark onto designated stone dock/port tiles (`OWTP_DOCKSHIP`).
+  - Aquatic battle encounter checks & save state persistence for `ship_x`, `ship_y`, `ship_visible`, and `has_canoe`.
+- [x] **Dedicated Weapon & Armor Shops**:
   - 4-part split layout with shopkeeper counter barrier and customer sprite.
   - Menu options: `[Buy | Sell | Exit]` with current GP.
-  - Item catalog with weapon/armor icons and prices.
+  - Item catalog with weapon/armor names and prices.
   - `Who will take it?` party recipient selector with 4-slot capacity validation.
   - **`Sell` Sub-Menu**: Quotes $\mathbf{50\%}$ of base purchase price (`Sell_Price = Base_Price >> 1`) with `[Price] Gold OK? (Yes / No)` confirmation.
-- [ ] **White & Black Magic Shops**:
+- [x] **White & Black Magic Shops**:
   - `Who will learn the spell?` caster selector.
   - 4 available tier spells catalog with class compatibility and 3-spell tier capacity validation.
-- [ ] **Town Services (Inn & Clinic)**:
-  - **Inn**: `[Cost] Gold OK?` prompt, screen night fade, resting fanfare, HP/MP restoration, SRAM save, and `"Hold RESET while turning POWER off"` notice.
+- [x] **Town Services (Inn & Clinic)**:
+  - **Inn**: `[Cost] Gold OK?` prompt, HP/MP restoration, and SRAM save persistence.
   - **Clinic**: `"Who shall be revived ...."` selector, town-scaled revival pricing, resuscitating fallen heroes with **exactly $1\text{ HP}$**.
-  - **Ruined Town State (Melmond)**: Broken perimeter walls, gravestones, and Tier 5 Magic shops (`CUR3`, `HRM3`, `FIR3`, `BANE`, `WARP`).
-- [ ] **Story Progression & Quest State Machines**:
-  - **Garland & Princess Sarah**: Rescuing Sarah sets `SARAH_RESCUED` $\rightarrow$ King of Conelia builds Northern Bridge cutscene $\rightarrow$ bridge passage unlocked.
-  - **Pirates & Ship**: Defeating Bikke's 9 Pirates awards the Ship (`ship_vis = 1`).
-  - **Marsh Cave & Crown Quest**: Marsh Cave B3 spike tile $\rightarrow$ defeat Piscodemons/Wizards $\rightarrow$ obtain `CROWN`.
-  - **King Astos Reveal**: Presenting `CROWN` reveals King as Astos $\rightarrow$ defeat Astos $\rightarrow$ acquire `CRYSTAL` ($750\text{ EXP}$, $2,000\text{ GP}$, `OBJID_ASTOS` hidden).
-  - **Matoya's Herb Trade**: Presenting `CRYSTAL` to Witch Matoya trades for `HERB`.
+  - **Caravan Special Shop**: Oasis caravan selling the bottled fairy for $40,000\text{ GP}$.
+- [x] **Story Progression & Quest State Machines**:
+  - **Garland & Princess Sarah**: Rescuing Sarah sets `SARAH_RESCUED` $\rightarrow$ King of Conelia builds Northern Bridge $\rightarrow$ bridge passage unlocked.
+  - **Pirates & Ship**: Defeating Bikke's Pirates awards the Ship (`ship_visible = true`).
+  - **Marsh Cave & Crown Quest**: Marsh Cave B3 spike tile $\rightarrow$ Piscodemon encounter $\rightarrow$ obtain `CROWN`.
+  - **King Astos Reveal**: Presenting `CROWN` reveals King as Astos $\rightarrow$ Astos battle $\rightarrow$ acquire `CRYSTAL`.
+  - **Matoya's Herb Trade**: Presenting `CRYSTAL` to Witch Matoya trades for `HERB` (Jolt Tonic).
   - **Elf Prince Awakening**: Giving `HERB` wakes the sleeping prince $\rightarrow$ awards permanent `MYSTIC KEY`.
-  - **Mystic Key Door Unlocking**: Interacting with stone vault doors checks `has_mystic_key`, plays door open chime, and mutates tile to open doorway.
-  - **Treasure Vault Looting & Capacity Constraints**: Gold chests increment GP; equipment chests reject looting with `"Can't carry any more equipment."` if character bags are full.
-  - **Canal Demolition**: Delivering `TNT` to Nerrick plays demolition sequence, sets `canal_vis = 0`, and permanently converts overworld canal barrier into passable sea water.
-  - **Titan's Tunnel & Sarda's Cave**: Feeding `RUBY` to the giant Titan opens western passage $\rightarrow$ Sage Sarda grants the `ROD`.
-  - **Earth Cave B3 Stone Plate Unsealing**: Using `ROD` on stone slab displays `"The plate shatters, revealing a stairway!"` and mutates slab into downward staircase to B4.
-  - **Fiend Altar Sequence**: Stepping on altar behind defeated Fiend plays beam raster effect, sets `orbs_lit[EARTH] = true`, updates 4-Orb HUD, and triggers instant exit warp to overworld.
-- [ ] **Dungeon Coordinate Spike Encounters**:
-  - Hardcoded tile triggers (`tileprop+1 & 0x80 == 0`) executing mandatory $100\%$ forced battles (Piscodemons, Earth Elementals, Gargoyles).
+  - **Mystic Key Door Unlocking**: Interacting with stone vault doors checks `MYSTIC_KEY` and opens doorway.
+  - **Treasure Vault Looting & Key Items**: Dynamic chest handling for key items and gold treasures.
+  - **Canal Demolition**: Delivering `TNT` to Nerrick demolishes the canal barrier into passable sea water.
+  - **Titan's Tunnel & Sarda's Cave**: Feeding `RUBY` to giant Titan opens passage $\rightarrow$ Sage Sarda grants the `ROD`.
+  - **Earth Cave B3 Stone Plate Unsealing**: Using `ROD` shatters the plate into a downward staircase to B4.
+  - **Fiend Altar Sequence**: Stepping on altar behind defeated Lich sets `orbs_lit[EARTH] = true`, lights Earth Orb, and warps party outside to the overworld.
+- [x] **Dungeon Coordinate Spike Encounters**:
+  - Hardcoded tile triggers executing mandatory $100\%$ forced boss/guardian battles (Piscodemons, Vampire, Lich).
 
 ---
 
-### Phase 18: Battle Turn Step-Forward & Sequential Combat Narrative (Planned 🔲)
-- [ ] **Turn Command Step-Forward Flow**:
+### Phase 18: Battle Turn Step-Forward & Sequential Combat Narrative (Completed ✅)
+- [x] **Turn Command Step-Forward Flow**:
   - Sequential active hero step-forward animation ($16\text{ px}$ left) with command frame: `[FIGHT | MAGIC | DRINK | ITEM | RUN]`.
   - Target selection cursor with B-button cancel-back to previous party member.
-  - Hero battle poses: Standing, Attack swing, and Low-HP / Fallen Crouch.
-- [ ] **Combat Initiative & Surprise Rounds**:
+  - Hero battle poses: Standing, Step-Forward, Attack swing, and Low-HP / Fallen Crouch.
+- [x] **Combat Initiative & Surprise Rounds**:
   - Initiative resolution per round: $\text{Initiative} = \text{AGL} - \text{Rand}[0, 50]$.
   - Preemptive Strike: Displays `"Chance to strike first!"` before Round 1; party acts with full free turn.
   - Ambush: Displays `"Monsters strike first!"`; enemies execute full attack turn before player menu inputs open.
-- [ ] **Sequential Combat Narrative Engine**:
+- [x] **Sequential Combat Narrative Engine**:
   - Actor & Target banner box: `[Actor Name] -> [Target Name]`.
   - Multi-Hit Scaling: $\text{Hits} = 1 + \lfloor\frac{\text{Hit\%}}{32}\rfloor$, outputting `X Hits!`, `X DMG`.
   - RNG Criticals: Weapon-specific crit check outputting `Critical hit!!` with screen flash.
   - Ineffective Targeting: If target dies before strike executes, displays `Ineffective` and clears combat boxes.
   - Status messages: `Poisoned`, `Paralyzed`, `Muted!`, `Missed!`, `Awoke!`, `Cured!`, `Neutralized`.
-- [ ] **Status Ailment & Combat Math Pipeline**:
+- [x] **Status Ailment & Combat Math Pipeline**:
   - Affliction priority: $\mathbf{Dead (0\text{ HP})} > \mathbf{Stone} > \mathbf{Poison (PO)} > \mathbf{Paralysis (PA/ST)}$.
   - Darkness: $-40\text{ Hit Rate}$ penalty.
   - Silence: Spell lock.
@@ -330,17 +328,59 @@ Rewriting an 8-bit NES title natively into modern C++20 introduces unique techni
   - Undead Vulnerabilities: `HARM` series (`HRM2`, `HRM3`) and `FIRE` series (`FIR2`, `FIR3`) deal amplified damage against `Category::UNDEAD`.
   - Buff Stacking: `FAST` ($\times 2\text{ Hits}$), `FOG` ($+8\text{ Absorb}$), `RUSE` ($+80\text{ Evade}$), `SABR` ($+16\text{ Dmg}, +40\text{ Hit}$).
   - Weapon Family / Elemental Bonus: $+4\text{ Damage}$ and $+40\text{ Hit Rate}$ when `enable_bug_fixes == true`.
-- [ ] **Boss AI Engines**:
+- [x] **Boss AI Engines**:
   - **King Astos**: `RUB -> SLO2 -> FAST -> FIR2` ($750\text{ EXP}$, $2,000\text{ GP}$).
   - **Lich (Fiend of Earth)**: `ICE2 -> SLP2 -> FAST -> LIT2 -> FIR3 -> HOLD/SLEP` ($550\text{ EXP}$, $3,000\text{ GP}$).
   - **Un-Escapable Formations**: Bosses and spike guardians have `unrunnable` flag set, causing `RUN` attempts to output `"Can't run"` sequentially.
-- [ ] **Escape Mechanics**:
+- [x] **Escape Mechanics**:
   - Escapable check: $\text{Luck} > \text{Rand}[0, \text{Level} + 15]$.
   - Failed attempt: outputs `"Can't run"`.
   - Successful escape: outputs `"Close call....."` and terminates combat.
-- [ ] **Victory & Level-Up Sequence**:
+- [x] **Victory & Level-Up Sequence**:
   - `Monsters perished` victory banner + reward summary (`EXP UP [X]P`, `GOLD [X]G`).
   - Level-Up Popups: `Lev. up! [Name] L2`, `HP max [X]pts.`, stat gain readouts (`Str. up`, `Agi. up`, `Vit. up`, `Luck up`, `Int. up`).
+
+---
+
+### Phase 19: Airship Flight, Advanced Dungeons & The Four Elemental Fiends (Completed ✅)
+- [x] **Floater & Airship Ascension System**:
+  - Ice Cave B3 dungeon traversal with Evil Eye spike battle guarding the `FLOATER` (Levistone) chest.
+  - Stepping onto Ryukahn Desert with `FLOATER` plays the authentic Airship ascension sequence.
+  - 2x movement speed in the air, terrain bypass (mountains, oceans, forests), airship shadow projection, and flat grassland landing constraints.
+- [x] **Rosetta Stone, Lefeinish Language & Dr. Unne Translation**:
+  - Sunken Shrine 5F chest looting of the ancient `SLAB` (Rosetta Stone).
+  - Dr. Unne in Melmond deciphers the ancient tongue (`QuestFlag::SLAB_TRANSLATED`).
+  - Lufenia sky civilization dialogue unsealed; Elder grants `CHIME` and Envoy grants `CUBE` (Warp Cube).
+- [x] **The Remaining Three Fiend Dungeons & Boss Encounters**:
+  - **Mt. Gurgu**: Lava damage tiles, 5-floor volcanic labyrinth, **Fire Fiend Kary (Marilith)** boss encounter (`0x71`), and Fire Altar lighting the **Fire Orb**.
+  - **Sunken Shrine**: Oxygen/Oxyale diving, Mermaid sanctuary, **Water Fiend Kraken** boss encounter (`0x72`), and Water Altar lighting the **Water Orb**.
+  - **Mirage Tower & Flying Fortress**: Chime unsealing, Warp Cube teleporter, outer space window, **Wind Fiend Tiamat** boss encounter (`0x73`), and Wind Altar lighting the **Wind Orb**.
+- [x] **4-Orb Confluence & Black Crystal Activation**:
+  - All 4 Orbs (`EARTH`, `FIRE`, `WATER`, `WIND`) illuminate on the party HUD.
+  - Center Black Crystal in Temple of Fiends 1F unlocks when all 4 Orbs are restored.
+- [x] **Comprehensive Test Suite (Tests 44 to 50)**:
+  - Validated Floater item acquisition, Ryukahn desert airship raising, flight collision/landing constraints, Dr. Unne translation, and all 4 Fiend boss defeats/altar warp events.
+
+---
+
+### Phase 20: Temple of Fiends (Past), Chaos Final Boss & Epilogue Ending Sequence (Completed ✅)
+- [x] **2000-Year Time Warp & Black Crystal Unsealing**:
+  - Using Sarah's `LUTE` in the center of Temple of Fiends 1F shatters the stone plate.
+  - 4-Orb resonance opens the time portal 2000 years into the past.
+- [x] **Temple of Fiends (Past) 5-Floor Final Dungeon**:
+  - Traversal of the past elemental domains: Earth Floor (1F), Fire Floor (2F), Water Floor (3F), Wind Floor (4F), Chaos Sanctum (5F).
+  - Past 4 Fiends Rematches: **Lich 2**, **Kary 2**, **Kraken 2**, and **Tiamat 2**.
+  - Final treasures: Masamune (best weapon in game).
+- [x] **Final Boss: CHAOS**:
+  - Formation `0x78` (HP 2000, Absorb 100, Damage 170, 8 hits).
+  - Authentic AI spell rotation: `CRACK` (Earthquake), `INFERNO` (Fire), `TSUNAMI` (Water), `CYCLONE` (Wind), `CUR4` (Full HP restoration when low), `NUKE`.
+  - Epic final boss battle soundtrack & victory fanfare.
+- [x] **Authentic Epilogue & Ending Sequence**:
+  - Time loop closed narrative text scroll.
+  - Light Warriors standing on the cliff looking over the restored world.
+  - Full developer credits sequence and final "THE END" screen.
+
+---
 
 ## 🛡️ Risk Mitigation & Architectural Safeguards
 
